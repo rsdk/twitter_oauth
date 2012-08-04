@@ -6,27 +6,16 @@ import myoauth
 #import re
 
 
-OAUTH_TOKEN = '317365878-TCmMFSLaLSgglxZ7mHx4htpvqfYQQLE6p2j2hZWl'
-OAUTH_TOKEN_SECRET = 'ihAxyMFn3RhUqVLL1n0idtTvYk0b7lCz1kma4LWLrY'
-OAUTH_CONSUMER_KEY='lOewnflbE5LpQJtcJHlyCA'
-OAUTH_CONSUMER_SECRET='Qpp69d9QTJiyqLlSKhPSkmBIMbG0Y3S1d7XnR3pDk'
+OAUTH_TOKEN = ''
+OAUTH_TOKEN_SECRET = ''
+OAUTH_CONSUMER_KEY=''
+OAUTH_CONSUMER_SECRET=''
 
 
-
-def tweet(username, password, message):
-    encoded_msg = urllib.parse.urlencode({'status': message})
-    request = urllib.request.Request(
-         'http://api.twitter.com/1/statuses/update.json')
-    request.add_header('Authorization: ', 'Basic ' )
-    urllib.request.urlopen(request, encoded_msg)
-    
-def get_statuses_mentions():
-    base_url ='http://api.twitter.com/1/statuses/mentions.json'
+def generate_base_data():
     nonce = myoauth.oauth_generate_nonce()
     timestamp = str(int(time.time()))
-    request = urllib.request.Request(base_url+'?include_entities=true')
-    parameters = [
-              ['include_entities','true'],
+    base_parameters = [
               ['oauth_consumer_key',OAUTH_CONSUMER_KEY],
               ['oauth_nonce',nonce],
               ['oauth_signature_method','HMAC-SHA1'],
@@ -34,42 +23,46 @@ def get_statuses_mentions():
               ['oauth_token',OAUTH_TOKEN],
               ['oauth_version', '1.0']
               ]
-    signature = myoauth.oauth_sign(request.get_method(), base_url, parameters, OAUTH_CONSUMER_SECRET, OAUTH_TOKEN_SECRET)
-    
-    request.add_header('Authorization:', 'OAuth oauth_consumer_key="'+OAUTH_CONSUMER_KEY+
-                       '",oauth_nonce="'+nonce+'",oauth_signature="'+signature+
-                       '",oauth_signature_method="HMAC-SHA1",oauth_timestamp="'+timestamp+
-                       '",oauth_token="'+OAUTH_TOKEN+'",oauth_version="1.0"')
+    return base_parameters
 
-    print(request.get_header('Authorization:'))
-    print(request.get_method())
-    print(request.get_full_url())
+def generate_header_string(parameters, second_list):
+    parameters.extend(second_list)
+    header = 'OAuth '
+    for i in range(len(parameters)):
+        header += parameters[i][0]+'="'+urllib.parse.quote(parameters[i][1])+'"'
+        if i < len(parameters)-1:
+            header += ','
+    return header
+
+def retweeted_by_me():
+    base_url ='http://api.twitter.com/1/statuses/retweeted_by_me.json'
+    parameters = generate_base_data()
+    #querystring = urllib.parse.quote('?include_entities=true', safe='?')
+    #print(querystring)
+    request = urllib.request.Request(base_url)
+    signature = myoauth.oauth_sign(request.get_method(), base_url, parameters, OAUTH_CONSUMER_SECRET, OAUTH_TOKEN_SECRET)
+    header_string = generate_header_string(parameters, [['oauth_signature',signature]])
+    request.add_header('Authorization', header_string)
+    
+    print('Authinfo: '+request.get_header('Authorization'))
+    print('methodinfo: '+request.get_method())
+    print('urlinfo: '+request.get_full_url())
     return urllib.request.urlopen(request)
     
     
-''' OAuth 1.0a'''
-def get_statuses_home_timeline():
-    base_url = 'http://api.twitter.com/1/statuses/home_timeline.json'
-    nonce = myoauth.oauth_generate_nonce()
-    timestamp = str(int(time.time()))
-    request = urllib.request.Request(base_url+'?include_entities=true')
-    parameters = [
-              ['include_entities','true'],
-              ['oauth_consumer_key',OAUTH_CONSUMER_KEY],
-              ['oauth_nonce',nonce],
-              ['oauth_signature_method','HMAC-SHA1'],
-              ['oauth_timestamp', timestamp],
-              ['oauth_token',OAUTH_TOKEN],
-              ['oauth_version', '1.0']
-              ]
+def statuses_mentions():
+    base_url = 'http://api.twitter.com/1/statuses/mentions.json'
+    parameters = generate_base_data()
+    request = urllib.request.Request(base_url)
     signature = myoauth.oauth_sign(request.get_method(), base_url, parameters, OAUTH_CONSUMER_SECRET, OAUTH_TOKEN_SECRET)
-    
-    request.add_header('Authorization:', 'OAuth oauth_consumer_key="'+OAUTH_CONSUMER_KEY+
-                       '",oauth_nonce="'+nonce+'",oauth_signature="'+signature+
-                       '",oauth_signature_method="HMAC-SHA1",oauth_timestamp="'+timestamp+
-                       '",oauth_token="'+OAUTH_TOKEN+'",oauth_version="1.0"')
+    header_string = generate_header_string(parameters, [['oauth_signature',signature]])
+    request.add_header('Authorization', header_string)
+    '''request.add_header('Authorization', 'OAuth oauth_consumer_key="'+OAUTH_CONSUMER_KEY+
+                       '",oauth_nonce="'+parameters[1][1]+'",oauth_signature="'+urllib.parse.quote(signature)+
+                       '",oauth_signature_method="HMAC-SHA1",oauth_timestamp="'+parameters[3][1]+
+                       '",oauth_token="'+OAUTH_TOKEN+'",oauth_version="1.0"')'''
 
-    print(request.get_header('Authorization:'))
+    print(request.get_header('Authorization'))
     print(request.get_method())
     print(request.get_full_url())
     return urllib.request.urlopen(request)
@@ -80,36 +73,6 @@ def search(searchterm):
                                      '&result_type=mixed&page=10&rpp=100')
     return urllib.request.urlopen(request)
 
-def get_site(user_ids):
-    a = list_to_string(user_ids)
-    baseurl = 'http://sitestream.twitter.com/2b/site.json'
-    f = 'follow'
-    nonce = myoauth.oauth_generate_nonce()
-    timestamp = str(int(time.time()))
-    request = urllib.request.Request('http://sitestream.twitter.com/2b/site.json?follow='+a)
-    print(request.get_method())
-    parameters = [
-                  [f,a],
-                  ['oauth_consumer_key',OAUTH_CONSUMER_KEY],
-                  ['oauth_nonce',nonce],
-                  ['oauth_signature_method','HMAC-SHA1'],
-                  ['oauth_timestamp', timestamp],
-                  ['oauth_token',OAUTH_TOKEN],
-                  ['oauth_version', '1.0']
-                  ]
-    print(parameters)
-    signature = myoauth.oauth_sign(request.get_method(),baseurl,
-                     parameters,
-                     OAUTH_CONSUMER_SECRET, OAUTH_TOKEN_SECRET)
-    
-    request.add_header('Authorization:', 'OAuth '+'oauth_consumer_key="'+OAUTH_CONSUMER_KEY+
-                       '",oauth_nonce="'+nonce+'",oauth_signature="'+signature+
-                       '",oauth_signature_method="HMAC-SHA1",oauth_timestamp="'+timestamp+
-                       '",oauth_token="'+OAUTH_TOKEN+'",oauth_version="1.0"')
-
-    print(request.header_items())
-    print(request.get_method())
-    return urllib.request.urlopen(request)
 
 def list_to_string(liste):
     string = ''
@@ -146,19 +109,15 @@ def parseJSON(json):
 
 
 if __name__ == '__main__':
-    '''
-    out = oauth_sign('post','https://sitestream.twitter.com/2b/site.json',
-                     [['oauth_consumer_key',OAUTH_CONSUMER_KEY],['oauth_nonce',oauth_generate_nonce()],
-                      ['oauth_token',OAUTH_TOKEN],['oauth_version', str(1.0)],
-                      ['oauth_timestamp', str(int(time.time()))],['oauth_signature_method','HMAC-SHA1']],
-                     OAUTH_CONSUMER_SECRET, OAUTH_TOKEN_SECRET)
-    print(out)
+    
 
-#print(home_timeline)
-'''
-    print(getJSON(get_statuses_mentions()))
+    try:
+        print(getJSON(retweeted_by_me()))
+    except urllib.error.HTTPError as err:
+        print(err)
+    '''
     #print(getJSON(get_site(['233861734','379562164'])))
-'''                           
+                        
 #print(getJSON(post_statuses_filter(['233861734','379562164'],['a'])))
 
 
